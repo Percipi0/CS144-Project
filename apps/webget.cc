@@ -1,16 +1,33 @@
 #include "socket.hh"
-
+#include "address.hh"
 #include <cstdlib>
 #include <iostream>
 #include <span>
 #include <string>
 
 using namespace std;
-
+// use TCPSocket & Address classes
+// cs144.keithw.org /hello
 void get_URL( const string& host, const string& path )
 {
-  cerr << "Function called: get_URL(" << host << ", " << path << ")\n";
-  cerr << "Warning: get_URL() has not been implemented yet.\n";
+  //cerr << "Function called: get_URL(" << host << ", " << path << ")\n";
+  //cerr << "Warning: get_URL() has not been implemented yet.\n";
+  const Address curAddress = Address(host, "http");
+  Socket curSocket = TCPSocket();
+  curSocket.connect(curAddress);
+  curSocket.write("GET " + path + " HTTP/1.1\r\n");
+  curSocket.write("HOST: " + host + "\r\n");
+  curSocket.write("Connection: close\r\n");
+  curSocket.write("\r\n");
+
+  std::string test;
+  //int count = 0;
+  while(!curSocket.eof()) {
+    curSocket.read(test);
+    cout << test;
+   // count++;
+  }
+
 }
 
 int main( int argc, char* argv[] )
