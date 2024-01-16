@@ -10,8 +10,6 @@ using namespace std;
 // cs144.keithw.org /hello
 void get_URL( const string& host, const string& path )
 {
-  //cerr << "Function called: get_URL(" << host << ", " << path << ")\n";
-  //cerr << "Warning: get_URL() has not been implemented yet.\n";
   const Address curAddress = Address(host, "http");
   Socket curSocket = TCPSocket();
   curSocket.connect(curAddress);
@@ -21,11 +19,9 @@ void get_URL( const string& host, const string& path )
   curSocket.write("\r\n");
 
   std::string test;
-  //int count = 0;
   while(!curSocket.eof()) {
     curSocket.read(test);
     cout << test;
-   // count++;
   }
 
 }
