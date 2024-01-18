@@ -1,6 +1,7 @@
 #pragma once
 
 #include "byte_stream.hh"
+#include <vector>
 
 class Reassembler
 {
@@ -42,4 +43,9 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
+  //std::deque<std::tuple<uint64_t, std::string>> tempStorage {};
+  int storageCapacity = output_.writer().available_capacity();
+  static std::string tempStorage [storageCapacity];
+  uint64_t curIndex = 0;
+
 };
