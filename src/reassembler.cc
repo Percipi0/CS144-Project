@@ -17,7 +17,6 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     string temp_str = data.substr( 0, output_.writer().available_capacity() );
     output_.writer().push( temp_str );
     cur_index += temp_str.length();
-    // final_index += temp_str.length();
   } else if ( first_index < cur_index ) {
     for ( uint64_t i = 0; i < data.length(); i++ ) {
       if ( ( first_index + i ) == cur_index ) {
@@ -25,13 +24,11 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
         string temp_str = data.substr( i, this->output_.writer().available_capacity() );
         this->output_.writer().push( temp_str );
         cur_index += temp_str.length();
-        // final_index += temp_str.length();
         break;
       }
     }
-  } else {
     // first_index must be greater than cur_index
-
+  } else {
     // check if we've put an elem at the edge of the buffer, and whether we're trying to go beyond that
     if ( !is_valid_index( first_index ) ) {
       return;
@@ -51,7 +48,6 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
   }
 
   // check if it's time to start pushing bytes in storage
-
   uint64_t new_cur_index = cur_index;
   if ( this->writer().bytes_pushed() > storage_capacity ) {
     new_cur_index %= storage_capacity;
@@ -71,19 +67,15 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     storage_bitmap.replace( new_cur_index, zeros.length(), zeros );
 
     cur_index += cur_str.length();
-    // final_index += cur_str.length();
   }
 
-  // clean up unneeded bits
+  // clean up unneeded entries in our bitmap
   string zeros( new_cur_index, '0' );
   storage_bitmap.replace( 0, zeros.length(), zeros );
 
   if ( is_last_substring ) {
     seen_last = true;
     total_len = first_index + data.length();
-    /*if ( data.length() != 0 ) {
-      final_index = first_index + data.length() - 1;
-    }*/
   }
 
   if ( seen_last && this->writer().bytes_pushed() == total_len ) {
