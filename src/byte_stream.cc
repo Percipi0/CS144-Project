@@ -12,9 +12,10 @@ bool Writer::is_closed() const
 void Writer::push( string data )
 {
   uint64_t count = 0;
-  for(uint64_t i = 0; i < (uint64_t)data.length(); i++) {
-    if (available_capacity() == 0 || this->isClosed) break;
-    this->deck_.push_back(data[i]);
+  for ( uint64_t i = 0; i < (uint64_t)data.length(); i++ ) {
+    if ( available_capacity() == 0 || this->isClosed )
+      break;
+    this->deck_.push_back( data[i] );
     count++;
   }
 
@@ -39,7 +40,7 @@ uint64_t Writer::bytes_pushed() const
 
 bool Reader::is_finished() const
 {
-  return this->isClosed && (this->deck_.size() == 0);
+  return this->isClosed && ( this->deck_.size() == 0 );
 }
 
 uint64_t Reader::bytes_popped() const
@@ -49,14 +50,14 @@ uint64_t Reader::bytes_popped() const
 
 string_view Reader::peek() const
 {
-  return string_view(&this->deck_.front(), 1);
-
-  }
+  return string_view( &this->deck_.front(), 1 );
+}
 
 void Reader::pop( uint64_t len )
 {
-  for (uint64_t i = 0; i < len; i++) {
-    if (this->deck_.size() == 0) break;
+  for ( uint64_t i = 0; i < len; i++ ) {
+    if ( this->deck_.size() == 0 )
+      break;
     this->deck_.pop_front();
     this->totalPopped++;
   }

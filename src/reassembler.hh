@@ -47,119 +47,31 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
-  std::deque<std::tuple<uint64_t, std::string, uint64_t>> tempStorage {};
-  uint64_t storageCapacity = output_.getCapacity();
-  uint64_t curIndex = 0;
-  bool seenLast = false;
-  uint64_t finalIndex = 0;
-  uint64_t bytesInStorage = 0;
+  uint64_t storage_capacity = output_.getCapacity();
+  uint64_t other_storage_capacity = storage_capacity;
+  // uint64_t bytes_pushed = 0;
+  uint64_t cur_index = 0;
+  uint64_t final_index = output_.getCapacity() - 1;
+  uint64_t total_len = 0;
+  bool seen_last = false;
+  bool modulate = false;
+  std::string storage = "";
+  uint64_t first_storage_index = 0;
+  std::string storage_bitmap = "";
+  bool doubleSize = true;
 
-  // check if byte at curIndex is already in tempStorage
-  bool checkIfTempStored()
+  // bool is_valid_index( uint64_t index ) { return ( ( index >= cur_index ) && ( index <= final_index ) ); }
+  bool is_valid_index( uint64_t index )
   {
-    for ( uint64_t i = 0; i < tempStorage.size(); i++ ) {
-      if ( get<0>( tempStorage[i] ) == curIndex )
-        return true;
-    }
+    if ( this->writer().bytes_pushed() < storage_capacity ) {
+      return ( ( index >= cur_index ) && ( index < cur_index + storage_capacity ) );
+    } else {
 
-    return false;
-  }
-
-  // returns index in tempStorage of string with desired index in bytestream, or -1 if not present
-  int checkStoredAtIdx( uint64_t index )
-  {
-    for ( uint64_t i = 0; i < tempStorage.size(); i++ ) {
-      uint64_t tempIndex = get<0>( tempStorage[i] );
-      uint64_t tempEndIndex = get<2>( tempStorage[i] );
-      // since tempStorage is sorted, if we reach an index above ours, we know ours isn't present
-      if ( tempIndex > index )
-        return -1;
-      if ( tempIndex == index || ( index > tempIndex && index <= tempEndIndex ) ) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  void putInStorage( uint64_t index, std::string data )
-  {
-    std::string curStr = data.substr( 0, this->output_.writer().getCapacity() - bytesInStorage );
-    // uint64_t lastIndex = index + curStr.length() - 1;
-    if ( tempStorage.empty() ) {
-      tempStorage.push_back( { index, curStr, index + curStr.length() - 1 } );
-      bytesInStorage += curStr.length();
-    }
-
-    if ( get<0>( tempStorage.back() ) < index ) {
-      tempStorage.push_back( { index, curStr, index + curStr.length() - 1 } );
-      bytesInStorage += curStr.length();
-      return;
-    }
-
-    for ( uint64_t i = 0; i < tempStorage.size(); i++ ) {
-      if ( get<0>( tempStorage[i] ) > index ) {
-        tempStorage.insert( tempStorage.begin() + i, { index, curStr, index + curStr.length() - 1 } );
-        bytesInStorage += curStr.length();
-
-        /* // remove duplicates
-         for ( uint64_t j = i + 1; j < tempStorage.size(); j++ ) {
-           if ( get<0>( tempStorage[j] ) <= lastIndex ) {
-             bytesInStorage -= get<1>( tempStorage[j] ).length();
-             tempStorage.erase( tempStorage.begin() + j );
-           }
-         }
-
-         for (auto elem : tempStorage) {
-
-         }
- */
-        return;
-      }
+      uint64_t new_index = index % storage_capacity;
+      return ( ( new_index >= cur_index % storage_capacity )
+               && ( new_index < ( cur_index % storage_capacity ) + storage_capacity ) );
     }
   }
-
-  void removeFromStorage( uint64_t index )
-  {
-    for ( uint64_t i = 0; i < tempStorage.size(); i++ ) {
-      if ( get<0>( tempStorage[i] ) == index ) {
-        bytesInStorage -= get<1>( tempStorage[i] ).length();
-        tempStorage.erase( tempStorage.begin() + i );
-        break;
-      }
-    }
-  }
-
-  // remove unneeded elements from the beginning of tempStorage
-  void cleanStorage()
-  {
-    while ( !tempStorage.empty() && get<0>( tempStorage.front() ) < curIndex ) {
-      bytesInStorage -= ( get<1>( tempStorage.front() ).length() );
-      tempStorage.pop_front();
-    }
-  }
-
-  void clearStorageOverlap( uint64_t firstIndex, uint64_t length )
-  {
-    for ( uint64_t i = firstIndex; i < length; i++ ) {
-      int curIdx = checkStoredAtIdx( i );
-      if ( curIdx != -1 ) {
-        removeFromStorage( i );
-      }
-    }
-  }
-
-  void clearStorageOverlap2( uint64_t firstIndex, uint64_t lastIndex )
-  {
-    for ( uint64_t i = firstIndex; i <= lastIndex; i++ ) {
-      removeFromStorage( i );
-    }
-  }
-
-  uint64_t lastIndex() { return ( ( curIndex + storageCapacity ) - 1 ); }
-
-  bool isValidIndex( uint64_t index )
-  {
-    return ( ( index >= curIndex ) && ( index < curIndex + storageCapacity ) );
-  }
+  // uint64_t last_index() { return ( ( cur_index + storage_capacity ) - 1 ); }
+  uint64_t last_index() { return final_index; }
 };
