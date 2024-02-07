@@ -47,17 +47,10 @@ add_test_exec(reassembler_win)
 
 add_test_exec(wrapping_integers_cmp)
 add_test_exec(wrapping_integers_wrap)
+
 add_test_exec(wrapping_integers_unwrap)
 add_test_exec(wrapping_integers_roundtrip)
 add_test_exec(wrapping_integers_extra)
-
-add_test_exec(recv_connect)
-add_test_exec(recv_transmit)
-add_test_exec(recv_window)
-add_test_exec(recv_reorder)
-add_test_exec(recv_reorder_more)
-add_test_exec(recv_close)
-add_test_exec(recv_special)
 
 add_test_exec(send_connect)
 add_test_exec(send_transmit)

@@ -26,11 +26,12 @@ public:
 protected:
   // Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
   uint64_t capacity_;
-  std::deque<char> deck_ {};
+  std::deque<std::string> deck_ {};
   bool error_ {};
   bool isClosed {false};
   uint64_t totalPushed = 0;
   uint64_t totalPopped = 0;
+  uint64_t bytes_in_deck_ = 0;
 };
 
 class Writer : public ByteStream

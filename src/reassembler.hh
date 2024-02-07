@@ -48,19 +48,13 @@ public:
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
   uint64_t storage_capacity = output_.getCapacity();
-  uint64_t other_storage_capacity = storage_capacity;
-  // uint64_t bytes_pushed = 0;
   uint64_t cur_index = 0;
   uint64_t final_index = output_.getCapacity() - 1;
   uint64_t total_len = 0;
   bool seen_last = false;
-  bool modulate = false;
   std::string storage = "";
-  uint64_t first_storage_index = 0;
   std::string storage_bitmap = "";
-  bool doubleSize = true;
 
-  // bool is_valid_index( uint64_t index ) { return ( ( index >= cur_index ) && ( index <= final_index ) ); }
   bool is_valid_index( uint64_t index )
   {
     if ( this->writer().bytes_pushed() < storage_capacity ) {
@@ -72,6 +66,6 @@ private:
                && ( new_index < ( cur_index % storage_capacity ) + storage_capacity ) );
     }
   }
-  // uint64_t last_index() { return ( ( cur_index + storage_capacity ) - 1 ); }
+
   uint64_t last_index() { return final_index; }
 };
