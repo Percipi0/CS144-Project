@@ -49,16 +49,19 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
-  std::queue<TCPSenderMessage> msg_queue_ {};
+
   uint64_t cur_win_size_ = 0;
+  bool win_advertised_zero = false;
+
+  std::queue<TCPSenderMessage> msg_queue_ {};
+  uint64_t bytes_in_queue_ = 0;
+
   bool syn_sent = false;
+
   bool fin = false;
   bool fin_received = false;
   bool fin_queued = false;
-  uint64_t bytes_in_queue_ = 0;
-  uint64_t RTO_ms_ = initial_RTO_ms_;
 
   uint64_t time_since_last_send = 0;
-  uint64_t tick_degree_ = 0;
   uint64_t consec_retransmissions = 0;
 };

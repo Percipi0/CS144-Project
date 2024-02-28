@@ -1,34 +1,21 @@
 Checkpoint 3 Writeup
 ====================
 
-My name: [your name here]
+My name: Logan Schreier
 
-My SUNet ID: [your sunetid here]
+My SUNet ID: logansch
 
-I collaborated with: [list sunetids here]
+I collaborated with: mattjv22
 
-I would like to thank/reward these classmates for their help: [list sunetids here]
+I would like to thank/reward these classmates for their help: mattjv22
 
-This checkpoint took me about [n] hours to do. I [did/did not] attend the lab session.
+This checkpoint took me about [20] hours to do. I [did not] attend the lab session.
 
-Program Structure and Design of the TCPSender [Describe data
-structures and approach taken. Describe alternative designs considered
-or tested.  Describe benefits and weaknesses of your design compared
-with alternatives -- perhaps in terms of simplicity/complexity, risk
-of bugs, asymptotic performance, empirical performance, required
-implementation time and difficulty, and other factors. Include any
-measurements if applicable.]: []
+Program Structure and Design of the TCPSender: When a message is created and transmitted for the first time, I add it to msg_queue_ (a TCPSenderMessage queue) in case it needs to be re-sent later. When I receive an acknowledgement for the most relevant (or current) messages, I pop them out of the queue until the message next in the queue has a higher seqno than what the current ackno refers to. Furthermore, once sufficient time has passed, I re-transmit the message at the front of the queue in its entirety, even if the receiver has received a portion of it before (let's say message ABC is at the top of the queue, and A has already been acknowledged. If BC has still not been ack'd, I resend all of ABC, which I thought to be a simpler, and dumber approach than editing the message in place to remove the A). I send out messages using a while (true) loop to account for the fact that the receiver's window size may be far bigger than the maximum size of TCPConfig::MAX_PAYLOAD_SIZE. Therefore, I send out messages of size no greater than TCPConfig::MAX_PAYLOAD_SIZE until either the window is filled up or the reader has no more bytes buffered. I assemble these messages using another while (true) loop inside of the aforementioned loop, in order to pull as many entries in the ByteStream as possible and compact them into a message of max size 1000. If only part of a ByteStream entry can be sent in the current message, I'll simply take as much of it as I can and leave the ByteStream to pop a mere portion of the entry. As far as bugs are concerned, I am currently only passing up to "When filling window, treat a '0' window size as equal to '1' but don't back off RTO" in send_extra, meaning I still have lots to do including setting RST flags. I am also worried that the use of a while (true) loop, let alone the two I currently have in my implementation, may somehow lead to an infinite loop due to an oversight of my own.. Some edge case or another I forgot to address. Because I took an approach to TCPSender involving the fitting of my implementation according to what test I was on, instead of taking a grander, more meticulous approach of understanding the assignment in its entirety before implementing, I took perhaps more time than what the usual student does in building the TCPSender because I often had to re-tool parts of the Sender after breaking them in order to address the current test case I was on. This approach is certainly ill-advised, and I'll work harder next time to map out my implementation before diving in. I certainly have more conditional statements than needed, and I'll have to refine them in order to make my code easier to follow. Lastly, I considered using a vector to store TCPSenderMessages, but thought that a queue would be quicker given that I need only to push/pop to and from the container and do not need access to elements in the middle.. If this was an ill-advised decision, please let me know! 
+
 
 Implementation Challenges:
-[]
+One thing I found difficulty with was in sending messages of size no greater than 1000 when we're given a massize window. I had to segment my push implementation a little into two while (true)s, the outer of which is responsible for sending only as much data as the window can accomodate, and the inner loop was left to pack the TCPSenderMessage with data up to length 1000. I further had great difficulty with my tick implementation, specifically in resetting the timer upon acknowledgement of new data. Kamran helped me work through this, and as it turns out, I was improperly resetting time_since_last_send in my tick function, when it should have only been reset in receive! 
 
 Remaining Bugs:
-[]
-
-- Optional: I had unexpected difficulty with: [describe]
-
-- Optional: I think you could make this lab better by: [describe]
-
-- Optional: I was surprised by: [describe]
-
-- Optional: I'm not sure about: [describe]
+RST flags are not set, improper handling of windows of size 0, and likely more. As mentioned prior, I'm currently on send_extra and will hopefully be done bug squashing soon!

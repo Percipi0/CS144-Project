@@ -21,74 +21,109 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
-
-  TCPSenderMessage msg;
-
-  if ( !syn_sent ) {
-    msg.SYN = true;
-    syn_sent = true;
-  }
-
-  // this->input_.read( this->reader(), cur_win_size_, msg.payload );
-
-  if ( this->reader().is_finished() ) {
-    msg.FIN = true;
-    fin = true;
-  }
-
-  // return if there's no reason to send
-  if ( this->reader().bytes_buffered() == 0 && !msg.SYN && !fin ) {
-    return;
-  }
-
-  if ( fin && fin_received )
-    return;
-
-  msg.seqno = this->isn_ + this->reader().bytes_popped();
-
-  if ( syn_sent && !msg.SYN )
-    msg.seqno = msg.seqno + 1;
-
-  // for ( uint64_t i = 0; i < cur_win_size_ && i < TCPConfig::MAX_PAYLOAD_SIZE; i++ ) {
   while ( true ) {
-    if ( msg.sequence_length() + sequence_numbers_in_flight() >= cur_win_size_
-         || this->reader().bytes_buffered() == 0 )
-      break;
 
-    // msg.payload += this->reader().peek();
-    //  msg.payload = msg.payload.substr( 0, cur_win_size_ - msg.payload.length() );
-    // input_.reader().pop( msg.payload.length() );
-    uint64_t bytes_remaining = cur_win_size_ - ( msg.sequence_length() + sequence_numbers_in_flight() );
-    string cur_str = (string)this->reader().peek();
-    cur_str = cur_str.substr( 0, bytes_remaining );
-    msg.payload += cur_str;
-    input_.reader().pop( cur_str.length() );
+    TCPSenderMessage msg;
+
+    if ( this->reader().has_error() ) {
+      msg.RST = true;
+    }
+
+    if ( !syn_sent ) {
+      msg.SYN = true;
+      syn_sent = true;
+    }
+
+    // set FIN flag if reader is finished AND we have space for FIN.
+    // This conditional is required in the case that we need to send FIN but don't have bytes buffered
+    if ( this->reader().is_finished()
+         && ( ( msg.sequence_length() + sequence_numbers_in_flight() < cur_win_size_ ) || cur_win_size_ == 0 ) ) {
+      msg.FIN = true;
+      fin = true;
+    }
+
+    // return if there's no good reason to send OR if we've already received an ack for FIN
+    if ( ( this->reader().bytes_buffered() == 0 && !msg.SYN && !fin ) || ( fin && fin_received ) ) {
+      return;
+    }
+
+    msg.seqno = this->isn_ + this->reader().bytes_popped();
+
+    if ( syn_sent && !msg.SYN )
+      msg.seqno = msg.seqno + 1;
+
+    while ( true ) {
+
+      // stop adding to the current message if we're out of space or data to add
+      if ( msg.sequence_length() + sequence_numbers_in_flight() >= cur_win_size_
+           || this->reader().bytes_buffered() == 0 || msg.payload.size() == TCPConfig::MAX_PAYLOAD_SIZE ) {
+        if ( cur_win_size_ != 0 )
+          break;
+      }
+
+      if ( cur_win_size_ == 0 && msg.sequence_length() == 1 )
+        break;
+
+      uint64_t bytes_remaining;
+      if ( cur_win_size_ == 0 ) {
+        // treat window size as 1 instead of 0, only if queue is empty
+        if ( msg_queue_.empty() ) {
+          bytes_remaining = 1;
+        } else
+          break;
+      } else {
+        bytes_remaining = cur_win_size_ - ( msg.sequence_length() + sequence_numbers_in_flight() );
+
+        if ( bytes_remaining > TCPConfig::MAX_PAYLOAD_SIZE ) {
+          bytes_remaining = TCPConfig::MAX_PAYLOAD_SIZE;
+        }
+      }
+
+      string cur_str = (string)this->reader().peek();
+      cur_str = cur_str.substr( 0, bytes_remaining );
+      msg.payload += cur_str;
+      input_.reader().pop( cur_str.length() );
+    }
+
+    // add FIN if the requirements are met AND we have the space
+    if ( this->reader().is_finished() && msg.sequence_length() + sequence_numbers_in_flight() < cur_win_size_ ) {
+      msg.FIN = true;
+      fin = true;
+    }
+
+    // avoid queueing two FINs simultaneously
+    if ( msg.FIN && fin_queued )
+      return;
+
+    /* if ( msg.payload == "" && !msg.SYN && !msg.FIN ) {
+       if ( cur_win_size_ == 0 ) {
+         transmit( msg );
+         msg_queue_.push( msg );
+         bytes_in_queue_ += msg.sequence_length();
+         return;
+       } else
+         return;
+     }*/
+
+    // avoid sending message when window size cannot accomodate
+    if ( msg.sequence_length() + sequence_numbers_in_flight() > cur_win_size_ && cur_win_size_ != 0 )
+      return;
+
+    if ( msg.payload == "" && !msg.SYN && !fin )
+      return;
+
+    // mark FIN as having been queued to avoid queueing more than one FIN
+    if ( msg.FIN )
+      fin_queued = true;
+
+    transmit( msg );
+    msg_queue_.push( msg );
+    bytes_in_queue_ += msg.sequence_length();
+
+    // break out of loop if we're out of either bytes buffered or space in the window
+    if ( this->reader().bytes_buffered() == 0 || sequence_numbers_in_flight() == cur_win_size_ )
+      return;
   }
-  //}
-
-  if ( this->reader().is_finished() ) {
-    msg.FIN = true;
-    fin = true;
-  }
-
-  if ( msg.FIN && fin_queued )
-    return;
-
-  if ( msg.sequence_length() + sequence_numbers_in_flight() > cur_win_size_ && cur_win_size_ != 0 )
-    return;
-
-  if ( msg.payload == "" && !msg.SYN && !msg.FIN )
-    return;
-
-  if ( msg.FIN )
-    fin_queued = true;
-
-  transmit( msg );
-  msg_queue_.push( msg );
-  bytes_in_queue_ += msg.sequence_length();
-
-  // add new outer while loop. if window size is huge, send packets of size 1000 until out of bytes or until win is
-  // full
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
@@ -99,13 +134,26 @@ TCPSenderMessage TCPSender::make_empty_message() const
   if ( fin )
     msg.seqno = msg.seqno + 1;
 
+  if ( this->reader().has_error() ) {
+    msg.RST = true;
+  }
+
   return msg;
 }
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
-  // cur_win_size_ = msg.window_size < TCPConfig::MAX_PAYLOAD_SIZE ? msg.window_size : TCPConfig::MAX_PAYLOAD_SIZE;
   cur_win_size_ = msg.window_size;
+
+  if ( msg.window_size == 0 ) {
+    win_advertised_zero = true;
+  } else {
+    win_advertised_zero = false;
+  }
+
+  if ( msg.RST ) {
+    this->writer().set_error();
+  }
 
   while ( true ) {
     if ( msg_queue_.empty() )
@@ -133,17 +181,24 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
 {
-  time_since_last_send += ms_since_last_tick;
-
-  // if ( msg_queue_.empty() || cur_win_size_ == 0 )
-  // return;
 
   if ( msg_queue_.empty() )
     return;
 
+  time_since_last_send += ms_since_last_tick;
+
   if ( time_since_last_send >= ( initial_RTO_ms_ * pow( 2, consecutive_retransmissions() ) ) ) {
-    transmit( msg_queue_.front() );
+
     time_since_last_send = 0;
-    consec_retransmissions++;
+
+    transmit( msg_queue_.front() );
+
+    // why is this not incremented by 1?
+    if ( !win_advertised_zero )
+      consec_retransmissions++;
+
+    // break 418, check here.. we return too early and dont increment consec
+    //  if ( cur_win_size_ - sequence_numbers_in_flight() == 0 )
+    //  return;
   }
 }
